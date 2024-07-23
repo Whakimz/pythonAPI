@@ -1,0 +1,54 @@
+stages:
+  - build
+  - test
+  - deploy
+
+build_docker:
+  stage: build
+  image: docker:git
+  services:
+  - docker:dind
+  before_script:
+  - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD registry.gitlab.com
+  script:
+  - docker build -t registry.gitlab.com/betask/betask-linked-api .
+  - docker push registry.gitlab.com/betask/betask-linked-api
+  only:
+    - master
+  when: manual
+
+test_docker:
+  stage: test
+  needs: ["build_docker"]
+  image: kroniak/ssh-client
+  environment:
+    name: test
+    url: https://api.betaskthai.com/linked/
+  script:
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
+    - echo "$SSH_PRIVATE_KEY_CLOUD" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh support@34.101.49.18 "docker rm -f flask_test_linked && docker image rm -f registry.gitlab.com/betask/betask-linked-api && docker run --env-file .env-linked-test --name flask_test_linked -i -d -p 5002:5001 registry.gitlab.com/betask/betask-linked-api"
+  only:
+    - master
+  when: manual
+
+deploy_docker:
+  stage: deploy
+  needs: ["test_docker"]
+  image: kroniak/ssh-client
+  environment:
+    name: production
+    url: https://api.betaskthai.com/linked/
+  script:
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
+    - echo "$SSH_PRIVATE_KEY_CLOUD" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh support@35.213.145.21 "docker rm -f flask_beatask_linked && docker image rm -f registry.gitlab.com/betask/betask-linked-api && docker run --env-file .env-linked --name flask_beatask_linked -i -d -p 5002:5001 registry.gitlab.com/betask/betask-linked-api"
+  only:
+    - master
+  when: manual
