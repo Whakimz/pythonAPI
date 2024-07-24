@@ -57,4 +57,4 @@ docker run --name flask_core -i -d -p 5001:5001 registry.gitlab.com/v.group-hond
 # docker Delete
 docker stop flask_core
 docker rm flask_core
-docker system prune -a
+docker system prune -a"# pythonAPI" 
